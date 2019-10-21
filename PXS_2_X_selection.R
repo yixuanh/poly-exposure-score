@@ -88,7 +88,6 @@ for (round in 2:50){
   disnames<-disnames[!duplicated(disnames)]
   disnames<-c(924,disnames) ######change 1538 if cad and ibd, 924 if af or t2d
   
-  ##env rsq
   keep<-which(names == disnames[1])
   for (i in 2:length(disnames)){
     keep<-c(keep,which(names == disnames[i]))
@@ -142,4 +141,48 @@ for (round in 2:50){
 
 k<-dis$V1[1]
 k<-c(k,row.names(sig))
-write.table(k,'/n/groups/patel/yixuan/PRS_ERS_DRS/XWAS/B_stepwise/t2d_keep_none_and_donotknow.tab',sep='\t')
+write.csv(paste(disease,'.tab',sep=''),sep='\t')
+                
+##get coefficients
+dis<-k
+
+disnames<-sub(".*?f.","",dis$x)
+disnames<-gsub("\\..*","",disnames)
+disnames<-disnames[!duplicated(disnames)]
+
+keep<-which(names == disnames[1])
+for (i in 2:length(disnames)){
+    keep<-c(keep,which(names == disnames[i]))
+}
+index<-which(colnames(df)==disease)
+keep<-df[,c(1,index,7:48,keep)]
+
+cat<-sapply(colnames(keep), function(x) class(keep[[x]]))
+cat<-data.frame(cat)
+
+
+##fix factoring
+listcat<-which(cat[2,]=="factor")
+for (i in listcat){
+    keep[,i]<-factor(keep[,i],ordered=FALSE)}
+for (i in listcat){
+    keep[,i]<-fct_rev(keep[,i])
+}
+ 
+keep<-keep[rowSums(keep == "Prefer not to answer")==0, , drop = FALSE]
+keep<-keep[rowSums(keep == "-3")==0, , drop = FALSE]
+keep<-keep[rowSums(keep == "-10")==0, , drop = FALSE]
+keep<-keep[rowSums(keep == "-1")==0, , drop = FALSE]
+
+keep<-na.omit(keep)
+keep<-keep[vapply(keep, function(x) length(unique(x)) > 1, logical(1L))] # those with only unique values
+
+levels(keep$f.31.0.0) <- c(levels(keep$f.31.0.0),'No')
+
+
+B<-which(keep$f.eid %in% IDlist$FID)
+fit<-glm(keep[B,2]~.,data=keep[B,-(1:2)],family='binomial')
+
+coeffs<-data.frame(summary(fit)$coefficients)
+coeffs<-coeffs[-(1:43),]
+write.csv(coeffs,paste(disease,'_coeffs.csv',sep=''))
